@@ -1,0 +1,4 @@
+name: MineTileRouter
+main: org.inventivetalent.minetile.router.RouterPlugin
+version: ${project.version}
+author: inventivetalent

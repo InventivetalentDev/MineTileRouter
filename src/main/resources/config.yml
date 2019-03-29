@@ -1,0 +1,17 @@
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: "admin123"
+
+# Starting tile for new players
+startTile:
+  x: 0
+  z: 0
+
+# Default values that will be used on first startup to populate redis with settings
+defaults:
+  # Radius from a tile's center to the edge of the playable area (not including limbo, etc.) in chunks
+  # Note that this isn't actually used as a *radius* (circle) but rather the amount of chunks in each coordinate direction
+  tileSize: 16
+  # Whether to synchronize player data (health, hunger, game mode, etc.) across containers
+  syncPlayerData: true
