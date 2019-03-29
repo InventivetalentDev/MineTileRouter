@@ -13,7 +13,7 @@ deploy:
     secure: "Utm0R2e4ICMFsFwHw/LqPql1txoGZcVFocAgQASxzSwCzQm0qIIDy8Nj00/UgOX9H6+lPA2qw2KSeTW8HEXTSoeQwuLvmMxmeDWxtyiVV27sYp3xLCHk8wa5ezs2s/oUD5KHPfWNf2snNWE1xAH3BE4fFfBK1MW1eBOcDf1qUJn0uahdCuJwomXjM4Xg2XNSdL7QfF7M5EXRp4iXhU9bX2g8tD3/MbIu5bCfUUzepnGvILVWcSmBkSEsDt6LkAEelXMiBlyVNqH3k72OvPE17cs9yLE+Y34jpshHhkAHwXFNqTOi3to9gkM9kECXnkm1y1gvlFZXLENNNrQSa69+iDshvp4zbjZupLATo9ZYUNpewXlKl5qYmo60Kq5hg3szfGnpk5YoGE97dDFC3N/gh9Otq1NTlP4Oge+xLdeiGhQzRFxzHVyMEVOUWNfZSnb5OJVIhiiWtR/OIPoBg8oolUkeifVXhgH4N8pETrjBMDkBfIYHrJ9LQ8iFLDc6i0uQhQi20JHWwQGRSf9i/rF6hf1QOTaW/5JUfT3tTVYSwlrdWzN0gnTkUETF7R2ORLi51itMpnO/WCehshcxQVCAlKeE4mz000RhbJhepJCRYwRDKfv2iolrxoVkvZ++DGpNxmsiJYuLn7K5SyM6RwbJjPcgEnupoVU/1xeEGBJN9nQ="
   file_glob: true
   file:
-    - "target/container*.jar"
+    - "target/router*.jar"
   skip_cleanup: true
   on:
     tags: true
