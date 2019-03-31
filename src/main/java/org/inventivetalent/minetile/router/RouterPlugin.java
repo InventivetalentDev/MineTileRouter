@@ -81,9 +81,9 @@ public class RouterPlugin extends Plugin implements Listener {
 		startTileZ = config.getInt("startTile.z", 0);
 
 		RMap<String, Object> settingsMap = redisson.getMap("MineTile:Settings");
-		getLogger().info("Adding default settings to redis in case they don't exist...");
+		getLogger().info("Adding settings to redis...");
 		for (String s : config.getSection("defaults").getKeys()) {
-			settingsMap.putIfAbsent(s, config.get("defaults." + s));
+			settingsMap.put(s, config.get("defaults." + s));
 		}
 
 		tileSize = (int) settingsMap.getOrDefault("tileSize", 16);
@@ -135,6 +135,8 @@ public class RouterPlugin extends Plugin implements Listener {
 			}
 		});
 
+		// Rediscover running servers
+		controlTopic.publish(new ControlRequest(ControlAction.REDISCOVER));
 	}
 
 	public void routeToServerForLocation(TeleportRequest teleportRequest) {
@@ -155,8 +157,8 @@ public class RouterPlugin extends Plugin implements Listener {
 			System.out.println("x: " + v.x);
 			System.out.println("z: " + v.z);
 
-			int tX = (int) Math.floor((double) teleportRequest.x / (double) tileSize);
-			int tZ = (int) Math.floor((double) teleportRequest.z / (double) tileSize);
+			int tX = (int) Math.round((double) teleportRequest.x / (double) (tileSize*2));
+			int tZ = (int) Math.round((double) teleportRequest.z / (double) (tileSize*2));
 
 			System.out.println("tX: " + tX);
 			System.out.println("tZ: " + tZ);
@@ -217,6 +219,7 @@ public class RouterPlugin extends Plugin implements Listener {
 
 	@EventHandler
 	public void on(ServerConnectEvent event) {
+		System.out.println(event);
 		if (event.getReason() == JOIN_PROXY) {
 			PlayerLocation position = positionMap.get(event.getPlayer().getUniqueId());
 			if (position != null) {
