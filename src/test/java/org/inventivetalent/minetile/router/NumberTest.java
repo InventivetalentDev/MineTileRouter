@@ -30,6 +30,14 @@ public class NumberTest {
 		assert (int)Math.round(-0.50146484) == -1;
 	}
 
+	@Test
+	public void mathRoundTest4() {
+		double in = -256.7047048151025;
+		int tileSize = 256;
+		int rounded = (int) Math.round(in / (double)(tileSize*2));
+		assert rounded == -1;
+	}
+
 
 
 }
