@@ -110,7 +110,7 @@ public class RouterPlugin extends Plugin implements Listener {
 		});
 
 		RTopic controlTopic = redisson.getTopic("MineTile:ServerControl");
-		getProxy().getPluginManager().registerCommand(this, new Command("restart-all-tiles","minetile.globalrestart") {
+		getProxy().getPluginManager().registerCommand(this, new Command("restart-all-tiles", "minetile.globalrestart") {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (args.length == 0 || !"confirm".equalsIgnoreCase(args[0])) {
@@ -122,7 +122,7 @@ public class RouterPlugin extends Plugin implements Listener {
 				sender.sendMessage(new TextComponent("Restart request sent."));
 			}
 		});
-		getProxy().getPluginManager().registerCommand(this, new Command("shutdown-all-tiles","minetile.globalshutdown") {
+		getProxy().getPluginManager().registerCommand(this, new Command("shutdown-all-tiles", "minetile.globalshutdown") {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				if (args.length == 0 || !"confirm".equalsIgnoreCase(args[0])) {
@@ -157,8 +157,8 @@ public class RouterPlugin extends Plugin implements Listener {
 			System.out.println("x: " + v.x);
 			System.out.println("z: " + v.z);
 
-			int tX = (int) Math.round((double) teleportRequest.x / (double) (tileSize*2));
-			int tZ = (int) Math.round((double) teleportRequest.z / (double) (tileSize*2));
+			int tX = (int) Math.round(teleportRequest.x / (double) (tileSize * 2));
+			int tZ = (int) Math.round(teleportRequest.z / (double) (tileSize * 2));
 
 			System.out.println("tX: " + tX);
 			System.out.println("tZ: " + tZ);
@@ -188,6 +188,14 @@ public class RouterPlugin extends Plugin implements Listener {
 			}
 		} else {
 			getLogger().warning("Failed to find available target server!");
+		}
+	}
+
+	public static int roundTile(double d) {
+		if (d < 0) {
+			return (int) Math.floor(d);
+		} else {
+			return (int) Math.ceil(d);
 		}
 	}
 
