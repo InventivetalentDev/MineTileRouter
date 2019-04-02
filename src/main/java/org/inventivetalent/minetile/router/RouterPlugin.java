@@ -136,6 +136,13 @@ public class RouterPlugin extends Plugin implements Listener {
 		});
 
 		// Rediscover running servers
+		rediscover();
+	}
+
+	void rediscover() {
+		tileMap.clear();
+
+		RTopic controlTopic = redisson.getTopic("MineTile:ServerControl");
 		controlTopic.publish(new ControlRequest(ControlAction.REDISCOVER));
 	}
 
