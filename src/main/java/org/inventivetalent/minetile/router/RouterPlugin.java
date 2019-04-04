@@ -23,15 +23,14 @@ import net.md_5.bungee.event.EventHandler;
 import org.inventivetalent.minetile.*;
 import org.redisson.Redisson;
 import org.redisson.api.RMap;
+import org.redisson.api.RSet;
 import org.redisson.api.RTopic;
 import org.redisson.config.Config;
 import org.redisson.config.SingleServerConfig;
 
 import java.io.*;
 import java.net.InetSocketAddress;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.logging.Level;
 
 import static net.md_5.bungee.api.event.ServerConnectEvent.Reason.JOIN_PROXY;
@@ -48,6 +47,8 @@ public class RouterPlugin extends Plugin implements Listener {
 
 	RMap<UUID, TileData>       tileMap;
 	RMap<UUID, PlayerLocation> positionMap;
+
+	RSet<CustomTeleport> customTeleportSet;
 
 	@Override
 	public void onEnable() {
@@ -101,6 +102,88 @@ public class RouterPlugin extends Plugin implements Listener {
 
 		tileMap = redisson.getMap("MineTile:Tiles");
 		positionMap = redisson.getMap("MineTile:Positions");
+
+		customTeleportSet = redisson.getSet("MineTile:CustomTeleports");
+		System.out.println(config.getList("loops_example"));
+		List<Map<String,Map<String,?>>> customTpList  = (List<Map<String, Map<String, ?>>>) config.getList("customTeleport");
+		customTeleportSet.clear();
+		customTpList.forEach(tp->{
+			System.out.println(tp);
+
+			if (!tp.containsKey("condition")) {
+				getLogger().warning("Missing condition for CustomTeleport");
+				return;
+			}
+			if (!tp.containsKey("action")) {
+				getLogger().warning("Missing action for CustomTeleport");
+				return;
+			}
+
+
+
+			Map<String,Map> conditionSection = (Map<String, Map>) tp.get("condition");
+			if (!conditionSection.containsKey("x") && !conditionSection.containsKey("z")) {
+				getLogger().warning("CustomTeleport condition must contain at least one x or z key");
+				return;
+			}
+
+			CustomTeleport.ConditionType xType = null;
+			int xVal = 0;
+			CustomTeleport.ConditionType zType=null;
+			int zVal=0;
+
+			if (conditionSection.containsKey("x")) {
+				Map<String,Integer> xSection = conditionSection.get("x");
+				if (!xSection.containsKey("smaller") && !xSection.containsKey("greater")) {
+					getLogger().warning("CustomTeleport Condition X needs either a greater or smaller key");
+					return;
+				}
+				if (xSection.containsKey("smaller") && xSection.containsKey("greater")) {
+					getLogger().warning("CustomTeleport Condition X may only container *either* a greater or smaller key");
+					return;
+				}
+
+				if (xSection.containsKey("smaller")) {
+					xType = CustomTeleport.ConditionType.SMALLER;
+					xVal = xSection.get("smaller");
+				} else if (xSection.containsKey("greater")) {
+					xType= CustomTeleport.ConditionType.GREATER;
+					xVal = xSection.get("greater");
+				}
+			}
+			if (conditionSection.containsKey("z")) {
+				Map<String,Integer> zSection = conditionSection.get("z");
+				if (!zSection.containsKey("smaller") && !zSection.containsKey("greater")) {
+					getLogger().warning("CustomTeleport Condition Z needs either a greater or smaller key");
+					return;
+				}
+				if (zSection.containsKey("smaller") && zSection.containsKey("greater")) {
+					getLogger().warning("CustomTeleport Condition Z may only container *either* a greater or smaller key");
+					return;
+				}
+
+				if (zSection.containsKey("smaller")) {
+					zType = CustomTeleport.ConditionType.SMALLER;
+					zVal = zSection.get("smaller");
+				} else if (zSection.containsKey("greater")) {
+					zType= CustomTeleport.ConditionType.GREATER;
+					zVal = zSection.get("greater");
+				}
+			}
+			CustomTeleport.Condition condition = new CustomTeleport.Condition(xType, xVal, zType, zVal);
+			
+
+
+			Map<String,Integer> actionSection = (Map<String, Integer>) tp.get("action");
+			CustomTeleport.Action action = new CustomTeleport.Action(
+					actionSection.containsKey("x"), actionSection.getOrDefault("x",0),
+					actionSection.containsKey("z"), actionSection.getOrDefault("z",0)
+			);
+
+			CustomTeleport customTeleport = new CustomTeleport(condition, action);
+			customTeleportSet.add(customTeleport);
+		});
+
 
 		RTopic teleportTopic = redisson.getTopic("MineTile:Teleports");
 		teleportTopic.addListener(TeleportRequest.class, (channel, teleportRequest) -> {

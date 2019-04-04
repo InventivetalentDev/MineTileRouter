@@ -8,6 +8,32 @@ startTile:
   x: 0
   z: 0
 
+# List of custom teleport conditions/actions
+customTeleport: []
+
+# Example for customTeleport
+# Used to simulate a sort of "sphere" effect on the world, where you exit at one side and appear back on the other side
+# (Just think of pacman ^^)
+loops_example:
+  - condition:
+      x: # if the x-coordinate is smaller or equals -1500...
+        smaller: -1500
+    action: # ...then teleport to 9000 on the x-axis (all numbers are in the global coordinate system)
+      x: 9000
+  - condition:
+      x: # Same as above, just in the opposite direction
+        greater: 9000
+    action: # (If x > 9000, tp to -1500)
+      x: -1500
+
+  - condition:
+      z: # if the z-coordinate is greater or equals 500...
+        greater: 500
+    action: # ...then teleport to -9000
+      z: -9000
+
+
+
 # Default values that will be used on first startup to populate redis with settings
 defaults:
   # Radius from a tile's center to the edge of the playable area (not including limbo, etc.) in chunks
