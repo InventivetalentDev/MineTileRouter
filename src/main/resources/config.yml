@@ -8,6 +8,14 @@ startTile:
   x: 0
   z: 0
 
+
+# Controls the very outer edge of the world
+worldEdge:
+  north: 10000000
+  east: 10000000
+  south: -10000000
+  west: -10000000
+
 # List of custom teleport conditions/actions
 customTeleport: []
 

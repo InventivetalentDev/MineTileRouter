@@ -22,6 +22,7 @@ import net.md_5.bungee.config.YamlConfiguration;
 import net.md_5.bungee.event.EventHandler;
 import org.inventivetalent.minetile.*;
 import org.redisson.Redisson;
+import org.redisson.api.RBucket;
 import org.redisson.api.RMap;
 import org.redisson.api.RSet;
 import org.redisson.api.RTopic;
@@ -49,6 +50,8 @@ public class RouterPlugin extends Plugin implements Listener {
 	RMap<UUID, PlayerLocation> positionMap;
 
 	RSet<CustomTeleport> customTeleportSet;
+
+	RBucket<WorldEdge> worldEdgeBucket;
 
 	@Override
 	public void onEnable() {
@@ -183,6 +186,11 @@ public class RouterPlugin extends Plugin implements Listener {
 			CustomTeleport customTeleport = new CustomTeleport(condition, action);
 			customTeleportSet.add(customTeleport);
 		});
+
+		worldEdgeBucket = redisson.getBucket("MineTile:WorldEdge");
+		Configuration edgeSection = config.getSection("worldEdge");
+		WorldEdge edge = new WorldEdge(edgeSection.getInt("north",10000000), edgeSection.getInt("east",10000000), edgeSection.getInt("south",-10000000), edgeSection.getInt("west",-10000000));
+		worldEdgeBucket.set(edge);
 
 
 		RTopic teleportTopic = redisson.getTopic("MineTile:Teleports");
