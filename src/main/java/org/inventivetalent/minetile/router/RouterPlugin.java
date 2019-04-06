@@ -64,6 +64,7 @@ public class RouterPlugin extends Plugin implements Listener {
 		}
 
 		getProxy().registerChannel("minetile:minetile");
+		getProxy().getPluginManager().registerListener(this, this);
 
 		/// Redis
 		Config redisConfig = new Config();
