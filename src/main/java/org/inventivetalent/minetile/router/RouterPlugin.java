@@ -330,7 +330,7 @@ public class RouterPlugin extends Plugin implements Listener {
 		if (event.getReason() == JOIN_PROXY) {
 			PlayerLocation position = positionMap.get(event.getPlayer().getUniqueId());
 			if (position != null) {
-				routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), null, (int) position.x / 16, (int) position.y / 16, (int) position.z / 16));
+				routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), null,  position.x / 16, position.y / 16, position.z / 16));
 			} else {
 				// try sending to start tile
 				routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), null, startTileX, 0, startTileZ));
