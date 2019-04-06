@@ -238,7 +238,7 @@ public class RouterPlugin extends Plugin implements Listener {
 		controlTopic.publish(new ControlRequest(ControlAction.REDISCOVER));
 	}
 
-	public void routeToServerForLocation(TeleportRequest teleportRequest) {
+	public boolean routeToServerForLocation(TeleportRequest teleportRequest) {
 		final Set<UUID> possibleServers = new HashSet<>();
 		tileMap.forEach((k, v) -> {
 			if (k.equals(teleportRequest.currentServer)) { return; }
@@ -270,8 +270,8 @@ public class RouterPlugin extends Plugin implements Listener {
 			}
 		});
 
+		boolean sent = false;
 		if (!possibleServers.isEmpty()) {
-			boolean sent = false;
 			for (UUID id : possibleServers) {
 				ServerInfo info = getProxy().getServerInfo(id.toString());
 				if (info != null) {
@@ -288,6 +288,7 @@ public class RouterPlugin extends Plugin implements Listener {
 		} else {
 			getLogger().warning("Failed to find available target server!");
 		}
+		return sent;
 	}
 
 	public static int roundTile(double d) {
