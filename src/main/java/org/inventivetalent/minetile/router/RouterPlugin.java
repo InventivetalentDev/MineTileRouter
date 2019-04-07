@@ -249,6 +249,10 @@ public class RouterPlugin extends Plugin implements Listener {
 		positionMap.putAsync(uuid, position).thenAccept((a) -> routeToServerForLocation(new TeleportRequest(uuid, null, position.x / 16, position.y / 16, position.z / 16), consumer));
 	}
 
+	public void getGlobalLocation(UUID uuid, Consumer<PlayerLocation> consumer) {
+		positionMap.getAsync(uuid).thenAccept(consumer);
+	}
+
 	public void routeToServerForLocation(TeleportRequest teleportRequest, Consumer<Boolean> consumer) {
 		final Set<UUID> possibleServers = new HashSet<>();
 		tileMap.readAllMapAsync().thenAccept(tiles -> {
