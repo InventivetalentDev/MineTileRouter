@@ -227,6 +227,19 @@ public class RouterPlugin extends Plugin implements Listener {
 			}
 		});
 
+		RTopic commandTopic = redisson.getTopic("MineTile:CommandSync");
+		getProxy().getPluginManager().registerCommand(this, new Command("run-global-command", "minetile.globalcommand") {
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				if (args.length == 0 ) {
+					sender.sendMessage(new TextComponent("Please specify the command you want to run"));
+					return;
+				}
+				String command = String.join(" ", args);
+				commandTopic.publishAsync(new GlobalCommand(command)).thenAccept((v)-> sender.sendMessage(new TextComponent("Command sent.")));
+			}
+		});
+
 		// Rediscover running servers
 		rediscover();
 	}
