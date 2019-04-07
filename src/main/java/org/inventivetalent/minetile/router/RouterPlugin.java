@@ -32,6 +32,7 @@ import org.redisson.config.SingleServerConfig;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 
 import static net.md_5.bungee.api.event.ServerConnectEvent.Reason.JOIN_PROXY;
@@ -109,9 +110,9 @@ public class RouterPlugin extends Plugin implements Listener {
 
 		customTeleportSet = redisson.getSet("MineTile:CustomTeleports");
 		System.out.println(config.getList("loops_example"));
-		List<Map<String,Map<String,?>>> customTpList  = (List<Map<String, Map<String, ?>>>) config.getList("customTeleport");
+		List<Map<String, Map<String, ?>>> customTpList = (List<Map<String, Map<String, ?>>>) config.getList("customTeleport");
 		customTeleportSet.clear();
-		customTpList.forEach(tp->{
+		customTpList.forEach(tp -> {
 			System.out.println(tp);
 
 			if (!tp.containsKey("condition")) {
@@ -123,9 +124,7 @@ public class RouterPlugin extends Plugin implements Listener {
 				return;
 			}
 
-
-
-			Map<String,Map> conditionSection = (Map<String, Map>) tp.get("condition");
+			Map<String, Map> conditionSection = (Map<String, Map>) tp.get("condition");
 			if (!conditionSection.containsKey("x") && !conditionSection.containsKey("z")) {
 				getLogger().warning("CustomTeleport condition must contain at least one x or z key");
 				return;
@@ -133,11 +132,11 @@ public class RouterPlugin extends Plugin implements Listener {
 
 			CustomTeleport.ConditionType xType = null;
 			int xVal = 0;
-			CustomTeleport.ConditionType zType=null;
-			int zVal=0;
+			CustomTeleport.ConditionType zType = null;
+			int zVal = 0;
 
 			if (conditionSection.containsKey("x")) {
-				Map<String,Integer> xSection = conditionSection.get("x");
+				Map<String, Integer> xSection = conditionSection.get("x");
 				if (!xSection.containsKey("smaller") && !xSection.containsKey("greater")) {
 					getLogger().warning("CustomTeleport Condition X needs either a greater or smaller key");
 					return;
@@ -151,12 +150,12 @@ public class RouterPlugin extends Plugin implements Listener {
 					xType = CustomTeleport.ConditionType.SMALLER;
 					xVal = xSection.get("smaller");
 				} else if (xSection.containsKey("greater")) {
-					xType= CustomTeleport.ConditionType.GREATER;
+					xType = CustomTeleport.ConditionType.GREATER;
 					xVal = xSection.get("greater");
 				}
 			}
 			if (conditionSection.containsKey("z")) {
-				Map<String,Integer> zSection = conditionSection.get("z");
+				Map<String, Integer> zSection = conditionSection.get("z");
 				if (!zSection.containsKey("smaller") && !zSection.containsKey("greater")) {
 					getLogger().warning("CustomTeleport Condition Z needs either a greater or smaller key");
 					return;
@@ -170,18 +169,16 @@ public class RouterPlugin extends Plugin implements Listener {
 					zType = CustomTeleport.ConditionType.SMALLER;
 					zVal = zSection.get("smaller");
 				} else if (zSection.containsKey("greater")) {
-					zType= CustomTeleport.ConditionType.GREATER;
+					zType = CustomTeleport.ConditionType.GREATER;
 					zVal = zSection.get("greater");
 				}
 			}
 			CustomTeleport.Condition condition = new CustomTeleport.Condition(xType, xVal, zType, zVal);
-			
 
-
-			Map<String,Integer> actionSection = (Map<String, Integer>) tp.get("action");
+			Map<String, Integer> actionSection = (Map<String, Integer>) tp.get("action");
 			CustomTeleport.Action action = new CustomTeleport.Action(
-					actionSection.containsKey("x"), actionSection.getOrDefault("x",0),
-					actionSection.containsKey("z"), actionSection.getOrDefault("z",0)
+					actionSection.containsKey("x"), actionSection.getOrDefault("x", 0),
+					actionSection.containsKey("z"), actionSection.getOrDefault("z", 0)
 			);
 
 			CustomTeleport customTeleport = new CustomTeleport(condition, action);
@@ -190,15 +187,14 @@ public class RouterPlugin extends Plugin implements Listener {
 
 		worldEdgeBucket = redisson.getBucket("MineTile:WorldEdge");
 		Configuration edgeSection = config.getSection("worldEdge");
-		WorldEdge edge = new WorldEdge(edgeSection.getInt("north",10000000), edgeSection.getInt("east",10000000), edgeSection.getInt("south",-10000000), edgeSection.getInt("west",-10000000));
+		WorldEdge edge = new WorldEdge(edgeSection.getInt("north", 10000000), edgeSection.getInt("east", 10000000), edgeSection.getInt("south", -10000000), edgeSection.getInt("west", -10000000));
 		worldEdgeBucket.set(edge);
-
 
 		RTopic teleportTopic = redisson.getTopic("MineTile:Teleports");
 		teleportTopic.addListener(TeleportRequest.class, (channel, teleportRequest) -> {
 			System.out.println(teleportRequest);
 
-			routeToServerForLocation(teleportRequest);
+			routeToServerForLocation(teleportRequest, null);
 		});
 
 		RTopic controlTopic = redisson.getTopic("MineTile:ServerControl");
@@ -210,8 +206,7 @@ public class RouterPlugin extends Plugin implements Listener {
 							.append("Type '/restart-all-tiles confirm' to continue.").color(ChatColor.RED).create());
 					return;
 				}
-				controlTopic.publish(new ControlRequest(ControlAction.RESTART));
-				sender.sendMessage(new TextComponent("Restart request sent."));
+				controlTopic.publishAsync(new ControlRequest(ControlAction.RESTART)).thenAccept((l) -> sender.sendMessage(new TextComponent("Restart request sent.")));
 			}
 		});
 		getProxy().getPluginManager().registerCommand(this, new Command("shutdown-all-tiles", "minetile.globalshutdown") {
@@ -222,8 +217,7 @@ public class RouterPlugin extends Plugin implements Listener {
 							.append("Type '/shutdown-all-tiles confirm' to continue.").color(ChatColor.RED).create());
 					return;
 				}
-				controlTopic.publish(new ControlRequest(ControlAction.SHUTDOWN));
-				sender.sendMessage(new TextComponent("Shutdown request sent."));
+				controlTopic.publishAsync(new ControlRequest(ControlAction.SHUTDOWN)).thenAccept((l) -> sender.sendMessage(new TextComponent("Shutdown request sent.")));
 			}
 		});
 
@@ -231,12 +225,12 @@ public class RouterPlugin extends Plugin implements Listener {
 		getProxy().getPluginManager().registerCommand(this, new Command("run-global-command", "minetile.globalcommand") {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				if (args.length == 0 ) {
+				if (args.length == 0) {
 					sender.sendMessage(new TextComponent("Please specify the command you want to run"));
 					return;
 				}
 				String command = String.join(" ", args);
-				commandTopic.publishAsync(new GlobalCommand(command)).thenAccept((v)-> sender.sendMessage(new TextComponent("Command sent.")));
+				commandTopic.publishAsync(new GlobalCommand(command)).thenAccept((v) -> sender.sendMessage(new TextComponent("Command sent.")));
 			}
 		});
 
@@ -251,57 +245,63 @@ public class RouterPlugin extends Plugin implements Listener {
 		controlTopic.publish(new ControlRequest(ControlAction.REDISCOVER));
 	}
 
-	public boolean routeToServerForLocation(TeleportRequest teleportRequest) {
+	public void routeToServerForLocation(TeleportRequest teleportRequest, Consumer<Boolean> callable) {
 		final Set<UUID> possibleServers = new HashSet<>();
-		tileMap.forEach((k, v) -> {
-			if (k.equals(teleportRequest.currentServer)) { return; }
+		tileMap.readAllMapAsync().thenAccept(tiles -> {
+			tiles.forEach((k, v) -> {
+				if (k.equals(teleportRequest.currentServer)) { return; }
 
-			//				int minX = v.x - 1;
-			//				int maxX = v.x + 1;
-			//				int minZ = v.z - 1;
-			//				int maxZ = v.z + 1;
+				//				int minX = v.x - 1;
+				//				int maxX = v.x + 1;
+				//				int minZ = v.z - 1;
+				//				int maxZ = v.z + 1;
 
-			//				System.out.println("minX: " + minX);
-			//				System.out.println("maxX: " + maxX);
-			//				System.out.println("minZ: " + minZ);
-			//				System.out.println("maxZ: " + maxZ);
+				//				System.out.println("minX: " + minX);
+				//				System.out.println("maxX: " + maxX);
+				//				System.out.println("minZ: " + minZ);
+				//				System.out.println("maxZ: " + maxZ);
 
-			System.out.println("x: " + v.x);
-			System.out.println("z: " + v.z);
+				System.out.println("x: " + v.x);
+				System.out.println("z: " + v.z);
 
-			int tX = (int) Math.round(teleportRequest.x / (double) (tileSize * 2));
-			int tZ = (int) Math.round(teleportRequest.z / (double) (tileSize * 2));
+				int tX = (int) Math.round(teleportRequest.x / (double) (tileSize * 2));
+				int tZ = (int) Math.round(teleportRequest.z / (double) (tileSize * 2));
 
-			System.out.println("tX: " + tX);
-			System.out.println("tZ: " + tZ);
+				System.out.println("tX: " + tX);
+				System.out.println("tZ: " + tZ);
 
-			//				if (tX >= minX && tX <= maxX && tZ >= minZ && tZ <= maxZ) {
-			//					possibleServer[0] = k;
-			//				}
-			if (tX == v.x && tZ == v.z) {
-				possibleServers.add(k);
+				//				if (tX >= minX && tX <= maxX && tZ >= minZ && tZ <= maxZ) {
+				//					possibleServer[0] = k;
+				//				}
+				if (tX == v.x && tZ == v.z) {
+					possibleServers.add(k);
+				}
+			});
+
+			boolean sent = false;
+			if (!possibleServers.isEmpty()) {
+				for (UUID id : possibleServers) {
+					ServerInfo info = getProxy().getServerInfo(id.toString());
+					if (info != null) {
+						getProxy().getPlayer(teleportRequest.player).connect(info);
+						sent = true;
+						break;
+					} else {
+						getLogger().warning("No info for sever: " + id);
+					}
+				}
+				if (!sent) {
+					getLogger().warning("None of the available servers could be reached!");
+				}
+			} else {
+				getLogger().warning("Failed to find available target server!");
+			}
+
+			if (callable != null) {
+				callable.accept(sent);
 			}
 		});
 
-		boolean sent = false;
-		if (!possibleServers.isEmpty()) {
-			for (UUID id : possibleServers) {
-				ServerInfo info = getProxy().getServerInfo(id.toString());
-				if (info != null) {
-					getProxy().getPlayer(teleportRequest.player).connect(info);
-					sent = true;
-					break;
-				} else {
-					getLogger().warning("No info for sever: " + id);
-				}
-			}
-			if (!sent) {
-				getLogger().warning("None of the available servers could be reached!");
-			}
-		} else {
-			getLogger().warning("Failed to find available target server!");
-		}
-		return sent;
 	}
 
 	public static int roundTile(double d) {
@@ -342,21 +342,25 @@ public class RouterPlugin extends Plugin implements Listener {
 	public void on(ServerConnectEvent event) {
 		System.out.println(event);
 		if (event.getReason() == JOIN_PROXY) {
-			PlayerLocation position = positionMap.get(event.getPlayer().getUniqueId());
-			UUID currentUUID =null;
-			try {
-				currentUUID = UUID.fromString(event.getTarget().getName());
-			} catch (Exception ignored) {
-			}
-			if (position != null) {
-				if(!routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), currentUUID,  position.x / 16, position.y / 16, position.z / 16))){
-					// try sending to start tile
-					routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), currentUUID, startTileX, 0, startTileZ));
+			positionMap.getAsync(event.getPlayer().getUniqueId()).thenAccept(position -> {
+				UUID currentUUID = null;
+				try {
+					currentUUID = UUID.fromString(event.getTarget().getName());
+				} catch (Exception ignored) {
 				}
-			} else {
-				// try sending to start tile
-				routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), currentUUID, startTileX, 0, startTileZ));
-			}
+				if (position != null) {
+					UUID finalCurrentUUID = currentUUID;
+					routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), currentUUID, position.x / 16, position.y / 16, position.z / 16), sent -> {
+						if (!sent) {
+							// try sending to start tile
+							routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), finalCurrentUUID, startTileX, 0, startTileZ), null);
+						}
+					});
+				} else {
+					// try sending to start tile
+					routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), currentUUID, startTileX, 0, startTileZ), null);
+				}
+			});
 		}
 	}
 
