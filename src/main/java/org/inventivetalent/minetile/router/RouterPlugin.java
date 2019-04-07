@@ -245,7 +245,11 @@ public class RouterPlugin extends Plugin implements Listener {
 		controlTopic.publish(new ControlRequest(ControlAction.REDISCOVER));
 	}
 
-	public void routeToServerForLocation(TeleportRequest teleportRequest, Consumer<Boolean> callable) {
+	public void globalTeleport(UUID uuid, PlayerLocation position, Consumer<Boolean> consumer) {
+		positionMap.putAsync(uuid, position).thenAccept((a) -> routeToServerForLocation(new TeleportRequest(uuid, null, position.x / 16, position.y / 16, position.z / 16), consumer));
+	}
+
+	public void routeToServerForLocation(TeleportRequest teleportRequest, Consumer<Boolean> consumer) {
 		final Set<UUID> possibleServers = new HashSet<>();
 		tileMap.readAllMapAsync().thenAccept(tiles -> {
 			tiles.forEach((k, v) -> {
@@ -297,8 +301,8 @@ public class RouterPlugin extends Plugin implements Listener {
 				getLogger().warning("Failed to find available target server!");
 			}
 
-			if (callable != null) {
-				callable.accept(sent);
+			if (consumer != null) {
+				consumer.accept(sent);
 			}
 		});
 
