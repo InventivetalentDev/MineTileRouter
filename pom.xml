@@ -52,9 +52,9 @@
                                     <include>org.inventivetalent.minetile:**</include>
 
                                     <include>com.google.code.gson:gson**</include>
-                                    <include>org.redisson:redisson**</include>
+                                    <include>org.redisson:**</include>
                                     <include>org.slf4j:**</include>
-                                    <include>**:**</include>
+                                    <include>com.fasterxml.jackson**</include>
                                 </includes>
                             </artifactSet>
                         </configuration>
