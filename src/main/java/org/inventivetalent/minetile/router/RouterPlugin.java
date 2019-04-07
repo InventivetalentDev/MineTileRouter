@@ -22,16 +22,14 @@ import net.md_5.bungee.config.YamlConfiguration;
 import net.md_5.bungee.event.EventHandler;
 import org.inventivetalent.minetile.*;
 import org.redisson.Redisson;
-import org.redisson.api.RBucket;
-import org.redisson.api.RMap;
-import org.redisson.api.RSet;
-import org.redisson.api.RTopic;
+import org.redisson.api.*;
 import org.redisson.config.Config;
 import org.redisson.config.SingleServerConfig;
 
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.util.*;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
@@ -249,8 +247,8 @@ public class RouterPlugin extends Plugin implements Listener {
 		positionMap.putAsync(uuid, position).thenAccept((a) -> routeToServerForLocation(new TeleportRequest(uuid, null, position.x / 16, position.y / 16, position.z / 16), consumer));
 	}
 
-	public void getGlobalLocation(UUID uuid, Consumer<PlayerLocation> consumer) {
-		positionMap.getAsync(uuid).thenAccept(consumer);
+	public CompletionStage<Void> getGlobalLocation(UUID uuid, Consumer<PlayerLocation> consumer) {
+		return positionMap.getAsync(uuid).thenAccept(consumer);
 	}
 
 	public void routeToServerForLocation(TeleportRequest teleportRequest, Consumer<Boolean> consumer) {
