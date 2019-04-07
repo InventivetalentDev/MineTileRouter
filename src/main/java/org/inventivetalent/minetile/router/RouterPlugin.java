@@ -22,7 +22,10 @@ import net.md_5.bungee.config.YamlConfiguration;
 import net.md_5.bungee.event.EventHandler;
 import org.inventivetalent.minetile.*;
 import org.redisson.Redisson;
-import org.redisson.api.*;
+import org.redisson.api.RBucket;
+import org.redisson.api.RMap;
+import org.redisson.api.RSet;
+import org.redisson.api.RTopic;
 import org.redisson.config.Config;
 import org.redisson.config.SingleServerConfig;
 
@@ -232,6 +235,18 @@ public class RouterPlugin extends Plugin implements Listener {
 			}
 		});
 
+		getProxy().getPluginManager().registerCommand(this, new Command("tilelist", "minetile.tilelist") {
+			@Override
+			public void execute(CommandSender sender, String[] args) {
+				tileMap.readAllMapAsync().thenAccept(tiles -> {
+					tiles.forEach((id, tile) -> {
+						ServerInfo info = getProxy().getServerInfo(id.toString());
+						sender.sendMessage(new TextComponent("x" + tile.x + "  z" + tile.z + "   "+(info!=null?info.getPlayers().size():"n/a")+" players"));
+					});
+				});
+			}
+		});
+
 		// Rediscover running servers
 		rediscover();
 	}
@@ -267,14 +282,14 @@ public class RouterPlugin extends Plugin implements Listener {
 				//				System.out.println("minZ: " + minZ);
 				//				System.out.println("maxZ: " + maxZ);
 
-				System.out.println("x: " + v.x);
-				System.out.println("z: " + v.z);
+//				System.out.println("x: " + v.x);
+//				System.out.println("z: " + v.z);
 
 				int tX = (int) Math.round(teleportRequest.x / (double) (tileSize * 2));
 				int tZ = (int) Math.round(teleportRequest.z / (double) (tileSize * 2));
 
-				System.out.println("tX: " + tX);
-				System.out.println("tZ: " + tZ);
+//				System.out.println("tX: " + tX);
+//				System.out.println("tZ: " + tZ);
 
 				//				if (tX >= minX && tX <= maxX && tZ >= minZ && tZ <= maxZ) {
 				//					possibleServer[0] = k;
