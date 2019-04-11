@@ -239,10 +239,31 @@ public class RouterPlugin extends Plugin implements Listener {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
 				tileMap.readAllMapAsync().thenAccept(tiles -> {
-					tiles.forEach((id, tile) -> {
-						ServerInfo info = getProxy().getServerInfo(id.toString());
-						sender.sendMessage(new TextComponent("x" + tile.x + "  z" + tile.z + "   "+(info!=null?info.getPlayers().size():"n/a")+" players"));
-					});
+					if (tiles == null || tiles.size() == 0) {
+						sender.sendMessage(new TextComponent("§cThere are no tiles"));
+					} else {
+						if (tiles.size() == 1) {
+							sender.sendMessage(new TextComponent("§7There is one tile:"));
+						} else {
+							sender.sendMessage(new TextComponent("§7There are " + tiles.size() + " tiles:"));
+						}
+						tiles.forEach((id, tile) -> {
+							ServerInfo info = getProxy().getServerInfo(id.toString());
+							final long pingStart = System.currentTimeMillis();
+							info.ping((ping, err) -> {
+								sender.sendMessage(new TextComponent("§9x" + tile.x + "  z" + tile.z + " §7[§d" + info.getAddress().getAddress().getHostAddress() + "§7]"));
+								long latency = System.currentTimeMillis() - pingStart;
+								if (err == null && ping != null) {
+									sender.sendMessage(new TextComponent("§7-- §a" + latency + "ms§7 latency"));
+								} else if (err != null) {
+									sender.sendMessage(new TextComponent("§7-- §cerror: §7" + err.getMessage()));
+								} else {
+									sender.sendMessage(new TextComponent("§7-- §ctimed out"));
+								}
+								sender.sendMessage(new TextComponent("§7-- §3" + (info != null ? info.getPlayers().size() : "n/a") + "§7 players"));
+							});
+						});
+					}
 				});
 			}
 		});
@@ -282,14 +303,14 @@ public class RouterPlugin extends Plugin implements Listener {
 				//				System.out.println("minZ: " + minZ);
 				//				System.out.println("maxZ: " + maxZ);
 
-//				System.out.println("x: " + v.x);
-//				System.out.println("z: " + v.z);
+				//				System.out.println("x: " + v.x);
+				//				System.out.println("z: " + v.z);
 
 				int tX = (int) Math.round(teleportRequest.x / (double) (tileSize * 2));
 				int tZ = (int) Math.round(teleportRequest.z / (double) (tileSize * 2));
 
-//				System.out.println("tX: " + tX);
-//				System.out.println("tZ: " + tZ);
+				//				System.out.println("tX: " + tX);
+				//				System.out.println("tZ: " + tZ);
 
 				//				if (tX >= minX && tX <= maxX && tZ >= minZ && tZ <= maxZ) {
 				//					possibleServer[0] = k;
