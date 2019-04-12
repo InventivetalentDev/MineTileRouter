@@ -22,8 +22,6 @@ import net.md_5.bungee.config.YamlConfiguration;
 import net.md_5.bungee.event.EventHandler;
 import org.inventivetalent.minetile.*;
 import org.redisson.Redisson;
-import org.redisson.api.RBucket;
-import org.redisson.api.RMap;
 import org.redisson.api.RSet;
 import org.redisson.api.RTopic;
 import org.redisson.config.Config;
@@ -31,16 +29,21 @@ import org.redisson.config.SingleServerConfig;
 
 import java.io.*;
 import java.net.InetSocketAddress;
-import java.util.*;
-import java.util.concurrent.CompletionStage;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
 import static net.md_5.bungee.api.event.ServerConnectEvent.Reason.JOIN_PROXY;
 
-public class RouterPlugin extends Plugin implements Listener {
+public class RouterPlugin extends Plugin implements MineTilePlugin, Listener {
 
 	Redisson redisson;
+	MySQL    sql;
 
 	public int tileSize       = 16;
 	public int tileSizeBlocks = 256;
@@ -48,12 +51,12 @@ public class RouterPlugin extends Plugin implements Listener {
 	public int startTileX = 0;
 	public int startTileZ = 0;
 
-	RMap<UUID, TileData>       tileMap;
-	RMap<UUID, PlayerLocation> positionMap;
+	//	RMap<UUID, TileData>       tileMap;
+	//	RMap<UUID, PlayerLocation> positionMap;
 
 	RSet<CustomTeleport> customTeleportSet;
 
-	RBucket<WorldEdge> worldEdgeBucket;
+	//	RBucket<WorldEdge> worldEdgeBucket;
 
 	@Override
 	public void onEnable() {
@@ -80,21 +83,45 @@ public class RouterPlugin extends Plugin implements Listener {
 		} else {
 			getLogger().warning("No password set for redis");
 		}
-
 		redisson = (Redisson) Redisson.create(redisConfig);
 		getLogger().info("Connected to Redis @ " + address);
+
+		/// SQL
+		sql = new MySQL();
+		try {
+			sql.connect(config.getString("sql.host", "127.0.0.1"), config.getInt("sql.port", 3306), config.getString("sql.user"), config.getString("sql.pass"), config.getString("sql.db"), config.getString("sql.prefix", "minetile_"));
+		} catch (SQLException e) {
+			throw new RuntimeException("Failed to connect to MySQL", e);
+		}
+		getLogger().info("Connected to MySQL");
+		try {
+			sql.initTables();
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to init tables", e);
+		}
 
 		startTileX = config.getInt("startTile.x", 0);
 		startTileZ = config.getInt("startTile.z", 0);
 
-		RMap<String, Object> settingsMap = redisson.getMap("MineTile:Settings");
-		getLogger().info("Adding settings to redis...");
-		for (String s : config.getSection("defaults").getKeys()) {
-			settingsMap.put(s, config.get("defaults." + s));
-		}
+		getSQL().execute(() -> {
+			getLogger().info("Adding settings to MySQL...");
+			for (String s : config.getSection("defaults").getKeys()) {
+				getSQL().updateSetting(s, String.valueOf(config.get("defaults." + s)));
+			}
 
-		tileSize = (int) settingsMap.getOrDefault("tileSize", 16);
-		tileSizeBlocks = tileSize * 16;
+			try {
+				tileSize = Integer.parseInt(getSQL().getSetting("tileSize"));
+			} catch (NumberFormatException ignored) {
+				tileSize = config.getInt("defaults.tileSize", 16);
+			}
+			tileSizeBlocks = tileSize * 16;
+
+			Configuration edgeSection = config.getSection("worldEdge");
+			getSQL().updateSetting("WorldEdge:north", edgeSection.getString("north", "10000000"));
+			getSQL().updateSetting("WorldEdge:east", edgeSection.getString("east", "10000000"));
+			getSQL().updateSetting("WorldEdge:south", edgeSection.getString("south", "-10000000"));
+			getSQL().updateSetting("WorldEdge:west", edgeSection.getString("west", "-10000000"));
+		});
 
 		RTopic serverTopic = redisson.getTopic("MineTile:ServerDiscovery");
 		serverTopic.addListener(ServerData.class, (channel, serverData) -> {
@@ -106,9 +133,10 @@ public class RouterPlugin extends Plugin implements Listener {
 			getLogger().info("Added Server " + serverData.serverId + " at " + serverData.host + ":" + serverData.port);
 		});
 
-		tileMap = redisson.getMap("MineTile:Tiles");
-		positionMap = redisson.getMap("MineTile:Positions");
+		//		tileMap = redisson.getMap("MineTile:Tiles");
+		//		positionMap = redisson.getMap("MineTile:Positions");
 
+		//TODO: update to MySQL
 		customTeleportSet = redisson.getSet("MineTile:CustomTeleports");
 		System.out.println(config.getList("loops_example"));
 		List<Map<String, Map<String, ?>>> customTpList = (List<Map<String, Map<String, ?>>>) config.getList("customTeleport");
@@ -186,11 +214,6 @@ public class RouterPlugin extends Plugin implements Listener {
 			customTeleportSet.add(customTeleport);
 		});
 
-		worldEdgeBucket = redisson.getBucket("MineTile:WorldEdge");
-		Configuration edgeSection = config.getSection("worldEdge");
-		WorldEdge edge = new WorldEdge(edgeSection.getInt("north", 10000000), edgeSection.getInt("east", 10000000), edgeSection.getInt("south", -10000000), edgeSection.getInt("west", -10000000));
-		worldEdgeBucket.set(edge);
-
 		RTopic teleportTopic = redisson.getTopic("MineTile:Teleports");
 		teleportTopic.addListener(TeleportRequest.class, (channel, teleportRequest) -> {
 			System.out.println(teleportRequest);
@@ -238,33 +261,43 @@ public class RouterPlugin extends Plugin implements Listener {
 		getProxy().getPluginManager().registerCommand(this, new Command("tilelist", "minetile.tilelist") {
 			@Override
 			public void execute(CommandSender sender, String[] args) {
-				tileMap.readAllMapAsync().thenAccept(tiles -> {
-					if (tiles == null || tiles.size() == 0) {
-						sender.sendMessage(new TextComponent("§cThere are no tiles"));
-					} else {
-						if (tiles.size() == 1) {
-							sender.sendMessage(new TextComponent("§7There is one tile:"));
-						} else {
-							sender.sendMessage(new TextComponent("§7There are " + tiles.size() + " tiles:"));
+				getSQL().execute(() -> {
+					try {
+						ResultSet resultSet = getSQL().stmt("SELECT * FROM `" + getSQL().prefix + "tiles`").executeQuery();
+						int c = 0;
+						while (resultSet.next()) {
+							c++;
+
+							String id = resultSet.getString("uuid");
+							int x = resultSet.getInt("x");
+							int z = resultSet.getInt("z");
+							ServerInfo info = getProxy().getServerInfo(id);
+							if (info != null) {
+								final long pingStart = System.currentTimeMillis();
+								info.ping((ping, err) -> {
+									sender.sendMessage(new TextComponent("§9x" + x + "  z" + z + " §7[§d" + info.getAddress().getAddress().getHostAddress() + "§7]"));
+									long latency = System.currentTimeMillis() - pingStart;
+									if (err == null && ping != null) {
+										sender.sendMessage(new TextComponent("§7-- §a" + latency + "ms§7 latency"));
+									} else if (err != null) {
+										sender.sendMessage(new TextComponent("§7-- §cerror: §7" + err.getMessage()));
+									} else {
+										sender.sendMessage(new TextComponent("§7-- §ctimed out"));
+									}
+									sender.sendMessage(new TextComponent("§7-- §3" + info.getPlayers().size() + "§7 players"));
+								});
+							} else {
+								sender.sendMessage(new TextComponent("§9x" + x + "  z" + z + " §7[§cNot found in proxy§7]"));
+							}
 						}
-						tiles.forEach((id, tile) -> {
-							ServerInfo info = getProxy().getServerInfo(id.toString());
-							final long pingStart = System.currentTimeMillis();
-							info.ping((ping, err) -> {
-								sender.sendMessage(new TextComponent("§9x" + tile.x + "  z" + tile.z + " §7[§d" + info.getAddress().getAddress().getHostAddress() + "§7]"));
-								long latency = System.currentTimeMillis() - pingStart;
-								if (err == null && ping != null) {
-									sender.sendMessage(new TextComponent("§7-- §a" + latency + "ms§7 latency"));
-								} else if (err != null) {
-									sender.sendMessage(new TextComponent("§7-- §cerror: §7" + err.getMessage()));
-								} else {
-									sender.sendMessage(new TextComponent("§7-- §ctimed out"));
-								}
-								sender.sendMessage(new TextComponent("§7-- §3" + (info != null ? info.getPlayers().size() : "n/a") + "§7 players"));
-							});
-						});
+						if (c == 0) {
+							sender.sendMessage(new TextComponent("§cThere are no tiles"));
+						}
+					} catch (SQLException e) {
+						throw new RuntimeException(e);
 					}
 				});
+
 			}
 		});
 
@@ -272,58 +305,69 @@ public class RouterPlugin extends Plugin implements Listener {
 		rediscover();
 	}
 
+	public Redisson getRedis() {
+		return this.redisson;
+	}
+
+	@Override
+	public MySQL getSQL() {
+		return this.sql;
+	}
+
 	void rediscover() {
-		tileMap.clear();
+		//		tileMap.clear();///TODO
 
 		RTopic controlTopic = redisson.getTopic("MineTile:ServerControl");
 		controlTopic.publish(new ControlRequest(ControlAction.REDISCOVER));
 	}
 
 	public void globalTeleport(UUID uuid, PlayerLocation position, Consumer<Boolean> consumer) {
-		positionMap.putAsync(uuid, position).thenAccept((a) -> routeToServerForLocation(new TeleportRequest(uuid, null, position.x / 16, position.y / 16, position.z / 16), consumer));
+		getSQL().execute(() -> {
+			getSQL().updatePosition(uuid, position);
+			routeToServerForLocation(new TeleportRequest(uuid, null, position.x / 16, position.y / 16, position.z / 16), consumer);
+		});
 	}
 
-	public CompletionStage<Void> getGlobalLocation(UUID uuid, Consumer<PlayerLocation> consumer) {
-		return positionMap.getAsync(uuid).thenAccept(consumer);
+	public void getGlobalLocation(UUID uuid, Consumer<PlayerLocation> consumer) {
+		getSQL().execute(() -> {
+			try {
+				PreparedStatement stmt = getSQL().stmt("SELECT * FROM " + getSQL().prefix + "positions WHERE `uuid`=?");
+				stmt.setString(1, uuid.toString());
+				ResultSet resultSet = stmt.executeQuery();
+				if (resultSet.next()) {
+					PlayerLocation position = PlayerLocation.fromSQL(resultSet);
+					if (consumer != null) {
+						consumer.accept(position);
+					}
+				}
+			} catch (SQLException e) {
+				throw new RuntimeException(e);
+			}
+		});
 	}
 
 	public void routeToServerForLocation(TeleportRequest teleportRequest, Consumer<Boolean> consumer) {
-		final Set<UUID> possibleServers = new HashSet<>();
-		tileMap.readAllMapAsync().thenAccept(tiles -> {
-			tiles.forEach((k, v) -> {
-				if (k.equals(teleportRequest.currentServer)) { return; }
+		final int tX = (int) Math.round(teleportRequest.x / (double) (tileSize * 2));
+		final int tZ = (int) Math.round(teleportRequest.z / (double) (tileSize * 2));
 
-				//				int minX = v.x - 1;
-				//				int maxX = v.x + 1;
-				//				int minZ = v.z - 1;
-				//				int maxZ = v.z + 1;
+		getSQL().execute(() -> {
+			try {
+				PreparedStatement stmt = getSQL().stmt("SELECT * FROM " + getSQL().prefix + "tiles WHERE `x`=? AND `z`=?;");
+				stmt.setInt(1, tX);
+				stmt.setInt(2, tZ);
+				ResultSet resultSet = stmt.executeQuery();
 
-				//				System.out.println("minX: " + minX);
-				//				System.out.println("maxX: " + maxX);
-				//				System.out.println("minZ: " + minZ);
-				//				System.out.println("maxZ: " + maxZ);
+				boolean foundOne = false;
+				boolean sent = false;
+				while (resultSet.next()) {
+					String id = resultSet.getString("uuid");
+					if (id == null) { continue; }
+					if (teleportRequest.currentServer != null && id.equals(teleportRequest.currentServer.toString())) {
+						continue;
+					}
+					foundOne = true;
 
-				//				System.out.println("x: " + v.x);
-				//				System.out.println("z: " + v.z);
-
-				int tX = (int) Math.round(teleportRequest.x / (double) (tileSize * 2));
-				int tZ = (int) Math.round(teleportRequest.z / (double) (tileSize * 2));
-
-				//				System.out.println("tX: " + tX);
-				//				System.out.println("tZ: " + tZ);
-
-				//				if (tX >= minX && tX <= maxX && tZ >= minZ && tZ <= maxZ) {
-				//					possibleServer[0] = k;
-				//				}
-				if (tX == v.x && tZ == v.z) {
-					possibleServers.add(k);
-				}
-			});
-
-			boolean sent = false;
-			if (!possibleServers.isEmpty()) {
-				for (UUID id : possibleServers) {
-					ServerInfo info = getProxy().getServerInfo(id.toString());
+					ServerInfo info = getProxy().getServerInfo(id);
 					if (info != null) {
 						getProxy().getPlayer(teleportRequest.player).connect(info);
 						sent = true;
@@ -335,12 +379,15 @@ public class RouterPlugin extends Plugin implements Listener {
 				if (!sent) {
 					getLogger().warning("None of the available servers could be reached!");
 				}
-			} else {
-				getLogger().warning("Failed to find available target server!");
-			}
+				if (!foundOne) {
+					getLogger().warning("Failed to find available target server!");
+				}
 
-			if (consumer != null) {
-				consumer.accept(sent);
+				if (consumer != null) {
+					consumer.accept(sent);
+				}
+			} catch (SQLException e) {
+				throw new RuntimeException(e);
 			}
 		});
 
@@ -382,25 +429,32 @@ public class RouterPlugin extends Plugin implements Listener {
 
 	@EventHandler
 	public void on(ServerConnectEvent event) {
-		System.out.println(event);
 		if (event.getReason() == JOIN_PROXY) {
-			positionMap.getAsync(event.getPlayer().getUniqueId()).thenAccept(position -> {
-				UUID currentUUID = null;
+			UUID currentUUID = null;
+			try {
+				currentUUID = UUID.fromString(event.getTarget().getName());
+			} catch (Exception ignored) {
+			}
+			UUID finalCurrentUUID = currentUUID;
+			getSQL().execute(() -> {
 				try {
-					currentUUID = UUID.fromString(event.getTarget().getName());
-				} catch (Exception ignored) {
-				}
-				if (position != null) {
-					UUID finalCurrentUUID = currentUUID;
-					routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), currentUUID, position.x / 16, position.y / 16, position.z / 16), sent -> {
-						if (!sent) {
-							// try sending to start tile
-							routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), finalCurrentUUID, startTileX, 0, startTileZ), null);
-						}
-					});
-				} else {
-					// try sending to start tile
-					routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), currentUUID, startTileX, 0, startTileZ), null);
+					PreparedStatement stmt = getSQL().stmt("SELECT * FROM `" + getSQL().prefix + "positions` WHERE `uuid`=?;");
+					stmt.setString(1, event.getPlayer().getUniqueId().toString());
+					ResultSet resultSet = stmt.executeQuery();
+					if (resultSet.next()) {
+						PlayerLocation position = PlayerLocation.fromSQL(resultSet);
+						routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), finalCurrentUUID, position.x / 16, position.y / 16, position.z / 16), sent -> {
+							if (!sent) {
+								// try sending to start tile
+								routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), finalCurrentUUID, startTileX, 0, startTileZ), null);
+							}
+						});
+					} else {
+						// try sending to start tile
+						routeToServerForLocation(new TeleportRequest(event.getPlayer().getUniqueId(), finalCurrentUUID, startTileX, 0, startTileZ), null);
+					}
+				} catch (SQLException e) {
+					throw new RuntimeException(e);
 				}
 			});
 		}
