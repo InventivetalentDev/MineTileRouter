@@ -462,27 +462,20 @@ public class RouterPlugin extends Plugin implements MineTilePlugin, Listener {
 
 	@EventHandler
 	public void on(PluginMessageEvent event) {
-		if (!"MineTile".equals(event.getTag())) { return; }
+		if (!"minetile:minetile".equals(event.getTag())) { return; }
 		ByteArrayDataInput in = ByteStreams.newDataInput(event.getData());
 		String subChannel = in.readUTF();
-		byte hasData = in.readByte();
-		ByteArraySerializable<?> data = null;
-		if (hasData > 0) {
-			String dataClass = in.readUTF();
-			try {
-				data = (ByteArraySerializable<?>) Class.forName(dataClass).newInstance();
-			} catch (ReflectiveOperationException e) {
-				getLogger().log(Level.SEVERE, "Failed to instantiate data class " + dataClass, e);
-				return;
-			}
-			data.readFromByteArray(in);
+
+		if ("GlobalTeleport".equals(subChannel)) {
+			UUID uuid = UUID.fromString(in.readUTF());
+			double x = in.readDouble();
+			double y = in.readDouble();
+			double z = in.readDouble();
+			float yaw = in.readFloat();
+			float pitch = in.readFloat();
+
+			globalTeleport(uuid, new PlayerLocation(x, y, z, pitch, yaw), null);
 		}
-
-		handleClientData(subChannel, event.getSender(), data);
-	}
-
-	public void handleClientData(String subChannel, Connection sender, ByteArraySerializable data) {
-
 	}
 
 	public void sendToClient(String subChannel, Connection receiver, ByteArraySerializable data) {
