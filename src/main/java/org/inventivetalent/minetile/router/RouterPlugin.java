@@ -376,13 +376,12 @@ public class RouterPlugin extends Plugin implements MineTilePlugin, Listener {
 						getLogger().warning("No info for sever: " + id);
 					}
 				}
-				if (!sent) {
-					getLogger().warning("None of the available servers could be reached!");
-					getProxy().getPlayer(teleportRequest.player).sendMessage(new TextComponent("§cSorry, that server isn't online at the moment."));
-				}
 				if (!foundOne) {
 					getLogger().warning("Failed to find available target server!");
 					getProxy().getPlayer(teleportRequest.player).sendMessage(new TextComponent("§cSorry, there are currently no servers available."));
+				} else if (!sent) {
+					getLogger().warning("None of the available servers could be reached!");
+					getProxy().getPlayer(teleportRequest.player).sendMessage(new TextComponent("§cSorry, that server isn't online at the moment."));
 				}
 
 				if (consumer != null) {
