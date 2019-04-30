@@ -129,8 +129,10 @@ public class RouterPlugin extends Plugin implements MineTilePlugin, Listener {
 			System.out.println(serverData);
 
 			ServerInfo serverInfo = getProxy().constructServerInfo(serverData.serverId.toString(), new InetSocketAddress(serverData.host, serverData.port), "MineTile Server #" + serverData.serverId, false);
-			getProxy().getServers().put(serverData.serverId.toString(), serverInfo);
+			getProxy().getConfig().addServer(serverInfo);
+//			getProxy().getConfig().getListeners().iterator().next().getServerPriority().add(0, serverData.serverId.toString());
 			getLogger().info("Added Server " + serverData.serverId + " at " + serverData.host + ":" + serverData.port);
+
 		});
 
 		//		tileMap = redisson.getMap("MineTile:Tiles");

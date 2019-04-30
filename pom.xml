@@ -67,12 +67,17 @@
 
     <dependencies>
         <dependency>
-            <groupId>net.md-5</groupId>
-            <artifactId>bungeecord-api</artifactId>
-            <version>1.12-SNAPSHOT</version>
-            <type>jar</type>
-            <scope>provided</scope>
+            <groupId>io.github.waterfallmc</groupId>
+            <artifactId>waterfall-api</artifactId>
+            <version>1.13-SNAPSHOT</version>
         </dependency>
+        <!--<dependency>-->
+            <!--<groupId>net.md-5</groupId>-->
+            <!--<artifactId>bungeecord-api</artifactId>-->
+            <!--<version>1.12-SNAPSHOT</version>-->
+            <!--<type>jar</type>-->
+            <!--<scope>provided</scope>-->
+        <!--</dependency>-->
 
         <dependency>
             <groupId>org.inventivetalent.minetile</groupId>
@@ -120,6 +125,10 @@
         <repository>
             <id>inventive-repo</id>
             <url>https://repo.inventivetalent.org/content/groups/public/</url>
+        </repository>
+        <repository>
+            <id>papermc</id>
+            <url>https://papermc.io/repo/repository/maven-public/</url>
         </repository>
     </repositories>
 
