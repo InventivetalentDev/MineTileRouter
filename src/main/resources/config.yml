@@ -57,3 +57,7 @@ defaults:
   tileSize: 16
   # Whether to synchronize player data (health, hunger, game mode, etc.) across containers
   syncPlayerData: true
+
+  tileOffsetX: 0
+  tileOffsetZ: 0
+  localIsGlobal: false

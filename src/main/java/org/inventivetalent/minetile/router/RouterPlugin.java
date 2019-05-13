@@ -35,6 +35,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
@@ -50,6 +51,9 @@ public class RouterPlugin extends Plugin implements MineTilePlugin, Listener {
 
 	public int startTileX = 0;
 	public int startTileZ = 0;
+
+	public int offsetX=0;
+	public int offsetZ= 0;
 
 	//	RMap<UUID, TileData>       tileMap;
 	//	RMap<UUID, PlayerLocation> positionMap;
@@ -102,6 +106,10 @@ public class RouterPlugin extends Plugin implements MineTilePlugin, Listener {
 
 		startTileX = config.getInt("startTile.x", 0);
 		startTileZ = config.getInt("startTile.z", 0);
+
+		offsetX = config.getInt("defaults.tileOffsetX", 0);
+		offsetZ = config.getInt("defaults.tileOffsetZ", 0);
+
 
 		getSQL().execute(() -> {
 			getLogger().info("Adding settings to MySQL...");
@@ -275,18 +283,21 @@ public class RouterPlugin extends Plugin implements MineTilePlugin, Listener {
 							int z = resultSet.getInt("z");
 							ServerInfo info = getProxy().getServerInfo(id);
 							if (info != null) {
+								final int d = c;
 								final long pingStart = System.currentTimeMillis();
 								info.ping((ping, err) -> {
-									sender.sendMessage(new TextComponent("§9x" + x + "  z" + z + " §7[§d" + info.getAddress().getAddress().getHostAddress() + "§7]"));
-									long latency = System.currentTimeMillis() - pingStart;
-									if (err == null && ping != null) {
-										sender.sendMessage(new TextComponent("§7-- §a" + latency + "ms§7 latency"));
-									} else if (err != null) {
-										sender.sendMessage(new TextComponent("§7-- §cerror: §7" + err.getMessage()));
-									} else {
-										sender.sendMessage(new TextComponent("§7-- §ctimed out"));
-									}
-									sender.sendMessage(new TextComponent("§7-- §3" + info.getPlayers().size() + "§7 players"));
+									getProxy().getScheduler().schedule(RouterPlugin.this, () -> {
+										sender.sendMessage(new TextComponent("§9x" + x + "  z" + z + " §7[§d" + info.getAddress().getAddress().getHostAddress() + "§7]"));
+										long latency = System.currentTimeMillis() - pingStart;
+										if (err == null && ping != null) {
+											sender.sendMessage(new TextComponent("§7-- §a" + latency + "ms§7 latency"));
+										} else if (err != null) {
+											sender.sendMessage(new TextComponent("§7-- §cerror: §7" + err.getMessage()));
+										} else {
+											sender.sendMessage(new TextComponent("§7-- §ctimed out"));
+										}
+										sender.sendMessage(new TextComponent("§7-- §3" + info.getPlayers().size() + "§7 players"));
+									}, 50 * d, TimeUnit.MILLISECONDS);
 								});
 							} else {
 								sender.sendMessage(new TextComponent("§9x" + x + "  z" + z + " §7[§cNot found in proxy§7]"));
@@ -349,8 +360,11 @@ public class RouterPlugin extends Plugin implements MineTilePlugin, Listener {
 	}
 
 	public void routeToServerForLocation(TeleportRequest teleportRequest, Consumer<Boolean> consumer) {
-		final int tX = (int) Math.round(teleportRequest.x / (double) (tileSize * 2));
-		final int tZ = (int) Math.round(teleportRequest.z / (double) (tileSize * 2));
+		final int tX = CoordinateConverter.tile16th(teleportRequest.x, tileSize, offsetX);
+		final int tZ = CoordinateConverter.tile16th(teleportRequest.z, tileSize, offsetZ);
+
+		System.out.println("tx: " + tX);
+		System.out.println("tz: " + tZ);
 
 		getSQL().execute(() -> {
 			try {
